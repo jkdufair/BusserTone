@@ -119,6 +119,7 @@
   }
   #play:hover { filter: brightness(1.08); }
   #play.stop { background: #f87171; }
+  #status { color: #fbbf24; font-size: 13px; text-align: center; min-height: 18px; margin: 10px 0 0; }
 </style>
 </head>
 <body>
@@ -214,6 +215,7 @@
 
   <div class="channels" id="channels"></div>
   <button id="play">Play</button>
+  <p id="status"></p>
 </main>
 
 <script>
@@ -227,6 +229,7 @@
   let ctx = null;
   let timer = null;
   const playBtn = document.getElementById('play');
+  const status = document.getElementById('status');
 
   // --- one channel: its own controls, own gain node, own pattern timeline ---
   function makeChannel(label, defaults) {
@@ -398,19 +401,44 @@
   ];
 
   function scheduler() {
+    if (ctx.state !== 'running') { reportState(); return; }
+    status.textContent = '';
     for (const ch of channels) ch.tick();
   }
 
-  async function start() {
+  // iOS Safari only unlocks an AudioContext if a source node is started inside
+  // the user gesture itself. Anything after an `await` runs in a microtask,
+  // which no longer counts as user-initiated, so the context stays suspended
+  // and the page is silent. Everything here must stay synchronous.
+  function unlock() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await ctx.resume();
-    // Both channels get the same origin; from there they free-run independently.
-    const at = ctx.currentTime + 0.1;
-    for (const ch of channels) ch.start(at);
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, 1, 22050);   // one frame of silence
+    src.connect(ctx.destination);
+    src.start(0);
+    return ctx.resume();
+  }
+
+  function start() {
+    const resumed = unlock();
     timer = setInterval(scheduler, TICK_MS);
-    scheduler();
     playBtn.textContent = 'Stop';
     playBtn.classList.add('stop');
+    // Anchor once the clock is actually running: while suspended, currentTime
+    // is frozen, so scheduling against it would dump the backlog on resume.
+    resumed.then(() => {
+      if (!timer) return;
+      // Both channels get the same origin; from there they free-run independently.
+      const at = ctx.currentTime + 0.1;
+      for (const ch of channels) ch.start(at);
+      scheduler();
+    }).catch(reportState);
+  }
+
+  function reportState() {
+    status.textContent = ctx && ctx.state !== 'running'
+      ? `audio ${ctx.state} — tap Play again; on iPhone also check the silent switch`
+      : '';
   }
 
   function stop() {
@@ -420,6 +448,7 @@
     setTimeout(() => { if (!timer && ctx) ctx.suspend(); }, 100);
     playBtn.textContent = 'Play';
     playBtn.classList.remove('stop');
+    status.textContent = '';
   }
 
   playBtn.addEventListener('click', () => timer ? stop() : start());
