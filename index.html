@@ -25,15 +25,43 @@
     justify-content: center;
     padding: 32px 16px;
   }
-  main { width: 100%; max-width: 620px; }
+  main { width: 100%; max-width: 900px; }
   h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: .5px; }
-  .sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0; }
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .banner .titles { flex: 1 1 240px; }
+  .shark { flex: 1 1 300px; max-width: 380px; overflow: visible; }
+  .beam { animation: fire 1.6s ease-in-out infinite; transform-origin: 330px 66px; }
+  @keyframes fire {
+    0%, 100% { opacity: .85; }
+    50%      { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .beam { animation: none; } }
+
+  .channels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+  }
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 10px;
     padding: 20px;
   }
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: -4px 0 8px;
+  }
+  .head h2 { font-size: 15px; margin: 0; flex: 1; letter-spacing: .4px; }
   .row {
     display: grid;
     grid-template-columns: 1fr 110px;
@@ -57,213 +85,350 @@
   }
   input[type="range"] { width: 100%; accent-color: var(--accent); }
   input:focus, select:focus { outline: 2px solid var(--accent-dim); outline-offset: 1px; }
-  .controls { display: flex; gap: 12px; align-items: center; margin-top: 22px; }
-  button {
-    flex: 1;
-    padding: 13px;
-    font: 600 15px/1 inherit;
-    color: #0d1117;
-    background: var(--accent);
-    border: 0;
-    border-radius: 8px;
-    cursor: pointer;
-  }
-  button:hover { filter: brightness(1.08); }
-  button.stop { background: #f87171; }
   .led {
     width: 16px; height: 16px; border-radius: 50%;
     background: #2a2e3b; flex: none;
     transition: background .04s linear;
   }
   .led.on { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  .mute {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font: 500 12px/1 inherit;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .mute.on { color: #f87171; border-color: #f87171; }
   .warn {
-    margin-top: 14px; min-height: 18px;
+    margin-top: 12px; min-height: 18px;
     color: #fbbf24; font-size: 13px;
   }
+  #play {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    font: 600 16px/1 inherit;
+    color: #0d1117;
+    background: var(--accent);
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #play:hover { filter: brightness(1.08); }
+  #play.stop { background: #f87171; }
 </style>
 </head>
 <body>
 <main>
-  <h1>BusserTone</h1>
-  <p class="sub">Web Audio pattern tone generator</p>
+  <div class="banner">
+    <div class="titles">
+      <h1>BusserTone</h1>
+      <p class="sub">Web Audio pattern tone generator &mdash; two independent channels, started together</p>
+    </div>
+    <svg class="shark" viewBox="0 0 440 210" role="img"
+         aria-label="A shark with a laser emitter strapped to its head, firing a beam">
+      <defs>
+        <linearGradient id="hide" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#3d4a61"/>
+          <stop offset=".55" stop-color="#75839b"/>
+          <stop offset=".78" stop-color="#c3ccdb"/>
+          <stop offset="1" stop-color="#e8edf4"/>
+        </linearGradient>
+        <linearGradient id="fin" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#33405622"/>
+          <stop offset="1" stop-color="#5d6b84"/>
+        </linearGradient>
+        <linearGradient id="ray" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#fff1f1"/>
+          <stop offset=".18" stop-color="#ff4d4d"/>
+          <stop offset="1" stop-color="#ff4d4d" stop-opacity=".15"/>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-300%" width="200%" height="700%">
+          <feGaussianBlur stdDeviation="4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
 
-  <div class="panel">
-    <div class="row">
-      <label for="freq"><span class="name">Frequency</span><span class="hint">Hz (20–20000)</span></label>
-      <input type="number" id="freq" value="440" min="20" max="20000" step="1">
-    </div>
-    <div class="row">
-      <label for="wave"><span class="name">Waveform</span><span class="hint">oscillator shape</span></label>
-      <select id="wave">
-        <option value="sine">Sine</option>
-        <option value="square">Square</option>
-        <option value="sawtooth">Saw</option>
-      </select>
-    </div>
-    <div class="row">
-      <label for="dur"><span class="name">Tone duration</span><span class="hint">seconds</span></label>
-      <input type="number" id="dur" value="0.15" min="0.01" max="60" step="0.01">
-    </div>
-    <div class="row">
-      <label for="count"><span class="name">Tones in a row</span><span class="hint">per pattern</span></label>
-      <input type="number" id="count" value="3" min="1" max="64" step="1">
-    </div>
-    <div class="row">
-      <label for="gap"><span class="name">Silence between tones</span><span class="hint">seconds</span></label>
-      <input type="number" id="gap" value="0.1" min="0" max="60" step="0.01">
-    </div>
-    <div class="row">
-      <label for="repeat"><span class="name">Repeat time</span><span class="hint">seconds from pattern start</span></label>
-      <input type="number" id="repeat" value="2" min="0.05" max="600" step="0.05">
-    </div>
-    <div class="row">
-      <label for="vol"><span class="name">Volume</span><span class="hint" id="volLabel">50%</span></label>
-      <input type="range" id="vol" value="50" min="0" max="100" step="1">
-    </div>
+      <!-- tail -->
+      <path fill="url(#fin)" d="M78 100 L26 52 C42 84 46 106 44 116 L28 154 C54 138 68 128 80 124 Z"/>
+      <!-- fins behind the body -->
+      <path fill="#4a5872" d="M250 136 L214 182 C246 172 268 154 280 138 Z"/>
 
-    <div class="controls">
-      <button id="play">Play</button>
-      <div class="led" id="led"></div>
-    </div>
-    <div class="warn" id="warn"></div>
+      <!-- body -->
+      <path fill="url(#hide)" d="M332 112
+        C302 76 244 66 186 74 C140 80 104 90 78 100
+        L78 124 C118 140 190 152 250 142 C292 136 318 126 332 112 Z"/>
+
+      <!-- fins in front -->
+      <path fill="#4f5d77" d="M180 76 L216 24 C224 46 228 62 232 71 Z"/>
+      <path fill="#4f5d77" d="M100 92 L114 68 L126 89 Z"/>
+      <path fill="#4f5d77" d="M132 144 L124 168 L152 149 Z"/>
+      <path fill="#5d6b84" d="M262 132 L246 166 C266 156 278 144 286 134 Z"/>
+
+      <!-- gills -->
+      <g stroke="#3b4863" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".65">
+        <path d="M250 96 C247 106 247 116 250 126"/>
+        <path d="M260 94 C257 105 257 116 260 126"/>
+        <path d="M270 93 C267 104 267 115 270 125"/>
+        <path d="M280 93 C277 104 277 114 280 124"/>
+      </g>
+
+      <!-- mouth + teeth -->
+      <path fill="#2b3548" d="M330 114 C314 130 298 136 282 135 C298 128 314 122 330 114 Z"/>
+      <g fill="#f4f7fb">
+        <path d="M322 121 l5 1 -5 4 Z"/>
+        <path d="M312 126 l5 1 -5 4 Z"/>
+        <path d="M302 130 l5 1 -5 4 Z"/>
+      </g>
+
+      <!-- eye -->
+      <circle cx="300" cy="103" r="6.5" fill="#141a26"/>
+      <circle cx="302" cy="101" r="2" fill="#dfe6f0"/>
+
+      <!-- harness straps hugging the head -->
+      <g fill="none" stroke="#232a38" stroke-width="6" stroke-linecap="round">
+        <path d="M252 78 C244 100 246 120 256 138"/>
+        <path d="M290 74 C284 96 286 116 294 132"/>
+      </g>
+
+      <!-- laser emitter -->
+      <g transform="rotate(-9 288 64)">
+        <rect x="248" y="46" width="72" height="30" rx="7" fill="#2f3747"/>
+        <rect x="248" y="46" width="72" height="11" rx="5" fill="#3f4a5e"/>
+        <circle cx="262" cy="63" r="3.5" fill="#4ade80"/>
+        <rect x="318" y="52" width="18" height="18" rx="3" fill="#454f63"/>
+        <circle cx="336" cy="61" r="8" fill="#ff4d4d"/>
+        <circle cx="336" cy="61" r="3.5" fill="#ffe9e9"/>
+      </g>
+
+      <!-- frickin' laser beam -->
+      <g class="beam" filter="url(#glow)">
+        <path fill="url(#ray)" d="M344 55 L440 44 L440 76 L344 66 Z"/>
+        <path fill="#fff" opacity=".9" d="M344 59 L440 55 L440 65 L344 62 Z"/>
+      </g>
+    </svg>
   </div>
+
+  <div class="channels" id="channels"></div>
+  <button id="play">Play</button>
 </main>
 
 <script>
 (() => {
-  const $ = id => document.getElementById(id);
-  const els = {
-    freq: $('freq'), wave: $('wave'), dur: $('dur'), count: $('count'),
-    gap: $('gap'), repeat: $('repeat'), vol: $('vol'),
-    play: $('play'), led: $('led'), warn: $('warn'), volLabel: $('volLabel')
-  };
-
   const LOOKAHEAD = 0.25;   // seconds of audio scheduled ahead of the clock
   const TICK_MS = 40;       // scheduler wake-up interval
   const RAMP = 0.005;       // attack/release, keeps edges from clicking
 
-  let ctx = null;
-  let master = null;
-  let timer = null;
-  let nextPatternTime = 0;  // ctx time at which the next pattern begins
-  let blinks = [];          // pending LED on/off times
-
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-  function readParams() {
-    const n = (el, fallback) => {
-      const v = parseFloat(el.value);
-      return Number.isFinite(v) ? v : fallback;
+  let ctx = null;
+  let timer = null;
+  const playBtn = document.getElementById('play');
+
+  // --- one channel: its own controls, own gain node, own pattern timeline ---
+  function makeChannel(label, defaults) {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.innerHTML = `
+      <div class="head">
+        <h2>${label}</h2>
+        <button class="mute" type="button">Mute</button>
+        <div class="led"></div>
+      </div>
+      <div class="row">
+        <label><span class="name">Frequency</span><span class="hint">Hz (20&ndash;20000)</span></label>
+        <input type="number" data-p="freq" min="20" max="20000" step="1">
+      </div>
+      <div class="row">
+        <label><span class="name">Waveform</span><span class="hint">oscillator shape</span></label>
+        <select data-p="wave">
+          <option value="sine">Sine</option>
+          <option value="square">Square</option>
+          <option value="sawtooth">Saw</option>
+        </select>
+      </div>
+      <div class="row">
+        <label><span class="name">Tone duration</span><span class="hint">seconds</span></label>
+        <input type="number" data-p="dur" min="0.01" max="60" step="0.01">
+      </div>
+      <div class="row">
+        <label><span class="name">Tones in a row</span><span class="hint">per pattern</span></label>
+        <input type="number" data-p="count" min="1" max="64" step="1">
+      </div>
+      <div class="row">
+        <label><span class="name">Silence between tones</span><span class="hint">seconds</span></label>
+        <input type="number" data-p="gap" min="0" max="60" step="0.01">
+      </div>
+      <div class="row">
+        <label><span class="name">Repeat time</span><span class="hint">seconds from pattern start</span></label>
+        <input type="number" data-p="repeat" min="0.05" max="600" step="0.05">
+      </div>
+      <div class="row">
+        <label><span class="name">Volume</span><span class="hint volLabel"></span></label>
+        <input type="range" data-p="vol" min="0" max="100" step="1">
+      </div>
+      <div class="warn"></div>`;
+    document.getElementById('channels').appendChild(panel);
+
+    const els = {};
+    for (const el of panel.querySelectorAll('[data-p]')) {
+      els[el.dataset.p] = el;
+      el.value = defaults[el.dataset.p];
+    }
+    const led = panel.querySelector('.led');
+    const warn = panel.querySelector('.warn');
+    const volLabel = panel.querySelector('.volLabel');
+    const muteBtn = panel.querySelector('.mute');
+
+    const ch = {
+      gain: null,
+      nextPatternTime: 0,   // ctx time at which this channel's next pattern begins
+      blinks: [],           // pending LED on/off times
+      muted: false
     };
-    const p = {
-      freq: clamp(n(els.freq, 440), 20, 20000),
-      wave: els.wave.value,
-      dur: clamp(n(els.dur, 0.15), 0.01, 60),
-      count: Math.round(clamp(n(els.count, 1), 1, 64)),
-      gap: clamp(n(els.gap, 0), 0, 60),
-      repeat: clamp(n(els.repeat, 1), 0.05, 600),
-      vol: clamp(n(els.vol, 50), 0, 100) / 100
+
+    function readParams() {
+      const n = (el, fallback) => {
+        const v = parseFloat(el.value);
+        return Number.isFinite(v) ? v : fallback;
+      };
+      const p = {
+        freq: clamp(n(els.freq, 440), 20, 20000),
+        wave: els.wave.value,
+        dur: clamp(n(els.dur, 0.15), 0.01, 60),
+        count: Math.round(clamp(n(els.count, 1), 1, 64)),
+        gap: clamp(n(els.gap, 0), 0, 60),
+        repeat: clamp(n(els.repeat, 1), 0.05, 600),
+        vol: ch.muted ? 0 : clamp(n(els.vol, 50), 0, 100) / 100
+      };
+      // Pattern length: tones plus the gaps between them (no trailing gap).
+      p.patternLength = p.count * p.dur + (p.count - 1) * p.gap;
+      return p;
+    }
+
+    function checkFit(p) {
+      warn.textContent = p.repeat < p.patternLength
+        ? `Repeat time (${p.repeat}s) is shorter than the pattern (${p.patternLength.toFixed(2)}s) — repeats will overlap.`
+        : '';
+    }
+
+    function scheduleTone(p, at) {
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      osc.type = p.wave;
+      osc.frequency.setValueAtTime(p.freq, at);
+
+      // Trapezoidal envelope; ramps shrink for tones too short to hold them.
+      const ramp = Math.min(RAMP, p.dur / 3);
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(1, at + ramp);
+      env.gain.setValueAtTime(1, at + p.dur - ramp);
+      env.gain.linearRampToValueAtTime(0, at + p.dur);
+
+      osc.connect(env).connect(ch.gain);
+      osc.start(at);
+      osc.stop(at + p.dur + 0.01);
+      osc.onended = () => { osc.disconnect(); env.disconnect(); };
+
+      ch.blinks.push({ on: at, off: at + p.dur });
+    }
+
+    ch.tick = () => {
+      const p = readParams();
+      checkFit(p);
+      ch.gain.gain.setTargetAtTime(p.vol, ctx.currentTime, 0.01);
+
+      const horizon = ctx.currentTime + LOOKAHEAD;
+      while (ch.nextPatternTime < horizon) {
+        for (let i = 0; i < p.count; i++) {
+          scheduleTone(p, ch.nextPatternTime + i * (p.dur + p.gap));
+        }
+        ch.nextPatternTime += p.repeat;
+      }
+
+      const now = ctx.currentTime;
+      ch.blinks = ch.blinks.filter(b => b.off > now - 0.5);
+      led.classList.toggle('on', !ch.muted && ch.blinks.some(b => b.on <= now && now < b.off));
     };
-    // Pattern length: tones plus the gaps between them (no trailing gap).
-    p.patternLength = p.count * p.dur + (p.count - 1) * p.gap;
-    return p;
+
+    // Each channel is created fresh on start and runs its own timeline from there.
+    ch.start = (at) => {
+      if (!ch.gain) {
+        ch.gain = ctx.createGain();
+        ch.gain.gain.value = 0;
+        ch.gain.connect(ctx.destination);
+      }
+      ch.blinks = [];
+      ch.nextPatternTime = at;
+    };
+
+    ch.stop = () => {
+      ch.blinks = [];
+      led.classList.remove('on');
+      if (ch.gain) {
+        // Cut the channel gain rather than the oscillators, so already-scheduled
+        // tones fade out instead of clicking off.
+        ch.gain.gain.cancelScheduledValues(ctx.currentTime);
+        ch.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.01);
+      }
+    };
+
+    volLabel.textContent = els.vol.value + '%';
+    els.vol.addEventListener('input', () => { volLabel.textContent = els.vol.value + '%'; });
+    muteBtn.addEventListener('click', () => {
+      ch.muted = !ch.muted;
+      muteBtn.classList.toggle('on', ch.muted);
+      muteBtn.textContent = ch.muted ? 'Muted' : 'Mute';
+      if (ch.gain) ch.gain.gain.setTargetAtTime(ch.muted ? 0 : readParams().vol, ctx.currentTime, 0.01);
+    });
+    // Surface the overlap warning before the user ever hits play.
+    for (const k of ['dur', 'count', 'gap', 'repeat']) {
+      els[k].addEventListener('input', () => checkFit(readParams()));
+    }
+
+    return ch;
   }
 
-  function checkFit(p) {
-    els.warn.textContent = p.repeat < p.patternLength
-      ? `Repeat time (${p.repeat}s) is shorter than the pattern (${p.patternLength.toFixed(2)}s) — repeats will overlap.`
-      : '';
-  }
-
-  function scheduleTone(p, at) {
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.type = p.wave;
-    osc.frequency.setValueAtTime(p.freq, at);
-
-    // Trapezoidal envelope; ramps shrink for tones too short to hold them.
-    const ramp = Math.min(RAMP, p.dur / 3);
-    env.gain.setValueAtTime(0, at);
-    env.gain.linearRampToValueAtTime(1, at + ramp);
-    env.gain.setValueAtTime(1, at + p.dur - ramp);
-    env.gain.linearRampToValueAtTime(0, at + p.dur);
-
-    osc.connect(env).connect(master);
-    osc.start(at);
-    osc.stop(at + p.dur + 0.01);
-    osc.onended = () => { osc.disconnect(); env.disconnect(); };
-
-    blinks.push({ on: at, off: at + p.dur });
-  }
+  const channels = [
+    makeChannel('Channel 1', { freq: 440, wave: 'sine', dur: 0.15, count: 3, gap: 0.1, repeat: 2, vol: 50 }),
+    makeChannel('Channel 2', { freq: 660, wave: 'square', dur: 0.1, count: 2, gap: 0.25, repeat: 3, vol: 50 })
+  ];
 
   function scheduler() {
-    const p = readParams();
-    checkFit(p);
-    master.gain.setTargetAtTime(p.vol, ctx.currentTime, 0.01);
-
-    const horizon = ctx.currentTime + LOOKAHEAD;
-    while (nextPatternTime < horizon) {
-      for (let i = 0; i < p.count; i++) {
-        scheduleTone(p, nextPatternTime + i * (p.dur + p.gap));
-      }
-      nextPatternTime += p.repeat;
-    }
-    updateLed();
-  }
-
-  function updateLed() {
-    const now = ctx.currentTime;
-    blinks = blinks.filter(b => b.off > now - 0.5);
-    els.led.classList.toggle('on', blinks.some(b => b.on <= now && now < b.off));
+    for (const ch of channels) ch.tick();
   }
 
   async function start() {
-    if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      master = ctx.createGain();
-      master.gain.value = 0;
-      master.connect(ctx.destination);
-    }
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     await ctx.resume();
-    blinks = [];
-    nextPatternTime = ctx.currentTime + 0.1;
+    // Both channels get the same origin; from there they free-run independently.
+    const at = ctx.currentTime + 0.1;
+    for (const ch of channels) ch.start(at);
     timer = setInterval(scheduler, TICK_MS);
     scheduler();
-    els.play.textContent = 'Stop';
-    els.play.classList.add('stop');
+    playBtn.textContent = 'Stop';
+    playBtn.classList.add('stop');
   }
 
   function stop() {
     clearInterval(timer);
     timer = null;
-    blinks = [];
-    if (ctx) {
-      // Cut the master gain rather than the oscillators, so already-scheduled
-      // tones fade out instead of clicking off.
-      master.gain.cancelScheduledValues(ctx.currentTime);
-      master.gain.setTargetAtTime(0, ctx.currentTime, 0.01);
-      setTimeout(() => { if (!timer) ctx.suspend(); }, 100);
-    }
-    els.led.classList.remove('on');
-    els.play.textContent = 'Play';
-    els.play.classList.remove('stop');
+    for (const ch of channels) ch.stop();
+    setTimeout(() => { if (!timer && ctx) ctx.suspend(); }, 100);
+    playBtn.textContent = 'Play';
+    playBtn.classList.remove('stop');
   }
 
-  els.play.addEventListener('click', () => timer ? stop() : start());
-  els.vol.addEventListener('input', () => {
-    els.volLabel.textContent = els.vol.value + '%';
-  });
+  playBtn.addEventListener('click', () => timer ? stop() : start());
   document.addEventListener('keydown', e => {
-    if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+    if (e.code === 'Space' && !['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) {
       e.preventDefault();
       timer ? stop() : start();
     }
   });
-
-  // Surface the overlap warning before the user ever hits play.
-  for (const el of [els.dur, els.count, els.gap, els.repeat]) {
-    el.addEventListener('input', () => checkFit(readParams()));
-  }
 })();
 </script>
 </body>
